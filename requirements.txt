@@ -1,0 +1,4 @@
+# Pinned for reproducible Docker and CI. Bump intentionally (e.g. after `pip list --outdated`).
+dlt[duckdb,snowflake]==1.26.0
+python-dotenv==1.2.2
+requests==2.33.1

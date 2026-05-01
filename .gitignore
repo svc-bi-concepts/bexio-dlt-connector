@@ -1,0 +1,12 @@
+Archive/
+tmp/
+.env
+bexio_refresh_token
+bexio_scd2_smoke.duckdb
+.DS_Store
+publish.zip
+/publish
+.idea
+__pycache__/
+.pytest_cache/
+.venv/
