@@ -1,0 +1,52 @@
+# SPCS *job service* spec: one container runs dlt_pipeline.py and exits.
+# Render: envsubst < spcs/job.yaml.tmpl > /tmp/bexio-dlt-job.yaml
+# Create:  spcs/deploy_job.sh --env <env>
+# Run:     spcs/execute_job.sh --env <env>
+#
+# Efficiency: no public endpoints, minimal CPU/RAM, block volume only for state.
+
+spec:
+  containers:
+    - name: pipeline
+      image: /${DB_NAME_LOWER}/${SCHEMA_LOWER}/${IMAGE_REPO}/connector:${ENV}-latest
+      command:
+        - /app/spcs/entrypoint.sh
+      env:
+        BEXIO_DLT_DESTINATION: snowflake
+        BEXIO_DLT_DATASET_NAME: "${BEXIO_DLT_DATASET_NAME}"
+        BEXIO_DLT_PIPELINE_NAME: "${BEXIO_DLT_PIPELINE_NAME}"
+        BEXIO_DATA_DIR: /data
+        BEXIO_REFRESH_TOKEN_FILE: /data/bexio_refresh_token
+        LOG_LEVEL: INFO
+        # dlt Snowflake destination (password from secret)
+        DESTINATION__SNOWFLAKE__CREDENTIALS__HOST: "${SNOWFLAKE_HOST}"
+        DESTINATION__SNOWFLAKE__CREDENTIALS__USERNAME: "${DLT_SNOWFLAKE_USER}"
+        DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE: "${DB_NAME}"
+        DESTINATION__SNOWFLAKE__CREDENTIALS__SCHEMA: "${BEXIO_DLT_DATASET_NAME}"
+        DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE: "${WAREHOUSE}"
+        DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE: "${LOADER_ROLE}"
+      secrets:
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_ID"
+          envVarName: BEXIO_CLIENT_ID
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_SECRET"
+          envVarName: BEXIO_CLIENT_SECRET
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_REFRESH_TOKEN"
+          envVarName: BEXIO_REFRESH_TOKEN
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.DLT_SNOWFLAKE_PASSWORD"
+          envVarName: DESTINATION__SNOWFLAKE__CREDENTIALS__PASSWORD
+      resources:
+        requests:
+          # Smallest practical size; raise memory if OOM during large endpoints (journal).
+          cpu: "0.25"
+          memory: 512Mi
+      volumeMounts:
+        - name: pipeline-data
+          mountPath: /data
+
+  volumes:
+    - name: pipeline-data
+      source: block
+      size: 1Gi
+      blockConfig:
+        # Persist .dlt state + rotated refresh token across daily job runs.
+        snapshotOnDelete: true

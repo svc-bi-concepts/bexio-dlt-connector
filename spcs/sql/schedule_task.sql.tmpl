@@ -1,0 +1,14 @@
+-- Daily trigger for the Bexio dlt SPCS job (async — task returns when job is submitted).
+-- Run via: spcs/deploy_infra.sh --env <env> --with-task
+-- Or: envsubst < spcs/sql/schedule_task.sql.tmpl | snow sql -c <connection>
+
+USE ROLE ${OPERATOR_ROLE};
+
+CREATE OR REPLACE TASK ${DB_NAME}.${SCHEMA}.BEXIO_DLT_PIPELINE_TASK
+  WAREHOUSE = ${WAREHOUSE}
+  SCHEDULE = 'USING CRON 0 2 * * * UTC'
+  COMMENT = 'Submit bexio-dlt-connector SPCS job (container runs only for extract duration)'
+AS
+  EXECUTE JOB SERVICE ${DB_NAME}.${SCHEMA}.${JOB_SERVICE} ASYNC;
+
+ALTER TASK ${DB_NAME}.${SCHEMA}.BEXIO_DLT_PIPELINE_TASK RESUME;

@@ -45,25 +45,22 @@ This document captures agreed direction: **OAuth application auth**, **PSA-style
 
 ## 3. Snowflake Snowpark Container Services (daily job)
 
+**Implemented in [`spcs/`](spcs/)** — see [`spcs/README.md`](spcs/README.md) for deploy steps and **efficiency** (job service, `MIN_NODES=0`, minimal CPU/RAM, container exits when done).
+
 ### Target architecture (outline)
 
-1. **Container image**: build from this repo’s `Dockerfile`; entrypoint runs `python dlt_pipeline.py` (or a thin wrapper that sets `PIPELINE_RUN_ID`).
-2. **Schedule**: SPCS **service spec** or **job** triggered once per day (or Snowflake **TASK** calling `SYSTEM$START_SPCS_SERVICE` / job API per your org pattern).
-3. **Secrets** (Snowflake **generic secret** or integration):
-   - `BEXIO_CLIENT_ID`, `BEXIO_CLIENT_SECRET`, `BEXIO_REFRESH_TOKEN`
-   - Snowflake user/password or keypair for dlt Snowflake destination
-4. **Environment**: inject `PIPELINE_RUN_ID` (e.g. UUID or `CURRENT_TIMESTAMP` passed from the orchestrator), `SNOWFLAKE_JOB_ID` if available.
-5. **State**: dlt pipeline state under `.dlt/` — mount a **volume** or sync to a stage if you need multi-replica semantics (single daily replica is simplest).
-6. **Networking**: allow egress to `api.bexio.com` and `auth.bexio.com`.
+1. **Container image**: `Dockerfile` + [`spcs/entrypoint.sh`](spcs/entrypoint.sh) (persist `.dlt` + refresh token on block volume, set `PIPELINE_RUN_ID`, run pipeline, exit).
+2. **Schedule**: SPCS **job service** + `EXECUTE JOB SERVICE` (optional Snowflake **TASK** in `spcs/sql/schedule_task.sql.tmpl`).
+3. **Secrets**: `spcs/create_secrets.sh` → `BEXIO_*` + `DLT_SNOWFLAKE_PASSWORD`.
+4. **Networking**: `api.bexio.com` + `auth.bexio.com` via `spcs/sql/network_rule.sql`.
 
 ### Recommended next steps
 
 | Priority | Item | Notes |
 |----------|------|--------|
-| P0 | **Dockerfile for SPCS** | Multi-stage image, non-root user, no secrets in layers; secrets only at runtime. |
-| P0 | **dlt → Snowflake** | Add `dlt[snowflake]`, configure destination in code or `secrets.toml` / env per dlt docs. |
-| P1 | **Observability** | Structured logs to stdout; capture in Snowflake logging or external collector; alert on non-zero “failed” endpoints in summary. |
-| P2 | **Cost** | Right-size CPU/memory; daily run is usually small; watch full-table `replace` API volume. |
+| P0 | **First successful SPCS run** | Follow `spcs/README.md`; validate one table then full pipeline. |
+| P1 | **Observability** | Alert on `failed` endpoints in log summary; `snow spcs service list-jobs`. |
+| P2 | **API incremental** | Per-endpoint `updated_at` search where supported. |
 
 ---
 

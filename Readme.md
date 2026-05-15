@@ -53,6 +53,10 @@ This project supersedes the earlier **`ft_customconnector_bexio`** / `FT_CustomC
 
 Snowflake destination setup: [dlt Snowflake destination](https://dlthub.com/docs/dlt-ecosystem/destinations/snowflake).
 
+### Snowflake SPCS (production batch job)
+
+Deploy as a **short-lived SPCS job** (not a 24/7 service): see **[spcs/README.md](spcs/README.md)** for setup scripts and an **efficiency** guide (`MIN_NODES=0`, minimal CPU/RAM, job exits when the extract finishes).
+
 ---
 
 ## Tests (no Bexio API calls)

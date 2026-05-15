@@ -1,0 +1,54 @@
+# SPCS job: Bexio extract → NDJSON on stage volume → Snowpipe REST (no dlt Snowflake warehouse).
+# Render: envsubst < spcs/job_snowpipe.yaml.tmpl > /tmp/bexio-sp.yml
+# Deploy:  JOB_SPEC_TMPL=.../job_snowpipe.yaml.tmpl ./spcs/deploy_job.sh --env dev
+#
+# Doc: spcs/SNOWPIPE.md
+
+spec:
+  containers:
+    - name: pipeline
+      image: /${DB_NAME_LOWER}/${SCHEMA_LOWER}/${IMAGE_REPO}/connector:${ENV}-latest
+      command:
+        - /app/spcs/entrypoint.sh
+      env:
+        BEXIO_LOAD_MODE: snowpipe
+        BEXIO_STAGE_MOUNT: /snowflake-stage
+        BEXIO_DATA_DIR: /data
+        BEXIO_REFRESH_TOKEN_FILE: /data/bexio_refresh_token
+        LOG_LEVEL: INFO
+        SNOWPIPE_PIPE_FQN: "${DB_NAME}.${SCHEMA}.BEXIO_JSON_PIPE"
+        SNOWFLAKE_ACCOUNT: "${SNOWFLAKE_ACCOUNT}"
+        SNOWPIPE_USER: "${SNOWPIPE_REST_USER}"
+        SNOWFLAKE_HOST: "${SNOWFLAKE_HOST}"
+      secrets:
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_ID"
+          envVarName: BEXIO_CLIENT_ID
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_SECRET"
+          envVarName: BEXIO_CLIENT_SECRET
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.BEXIO_REFRESH_TOKEN"
+          envVarName: BEXIO_REFRESH_TOKEN
+        - snowflakeSecret: "${DB_NAME}.${SCHEMA}.SNOWPIPE_PRIVATE_KEY_PEM"
+          envVarName: SNOWPIPE_PRIVATE_KEY_PEM
+      resources:
+        requests:
+          cpu: "0.25"
+          memory: 512Mi
+      volumeMounts:
+        - name: pipeline-data
+          mountPath: /data
+        - name: ingest-stage
+          mountPath: /snowflake-stage
+
+  volumes:
+    - name: pipeline-data
+      source: block
+      size: 1Gi
+      blockConfig:
+        snapshotOnDelete: true
+
+    - name: ingest-stage
+      source: stage
+      stageConfig:
+        name: "${DB_NAME}.${SCHEMA}.BEXIO_INGEST_STAGE"
+      uid: "1000"
+      gid: "1000"

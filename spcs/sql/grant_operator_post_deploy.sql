@@ -1,0 +1,22 @@
+-- Run AFTER deploy_infra.sh + deploy_job.sh (pool, EAI, job service exist).
+-- Grants OPERATOR role permission to submit the job and read secrets at runtime.
+--
+-- envsubst < spcs/sql/grant_operator_post_deploy.sql | snow sql -c <connection>
+
+USE ROLE ACCOUNTADMIN;
+
+GRANT USAGE ON COMPUTE POOL ${COMPUTE_POOL} TO ROLE ${OPERATOR_ROLE};
+GRANT USAGE ON INTEGRATION ${BEXIO_EAI} TO ROLE ${OPERATOR_ROLE};
+
+GRANT USAGE ON SERVICE ${DB_NAME}.${SCHEMA}.${JOB_SERVICE} TO ROLE ${OPERATOR_ROLE};
+GRANT MONITOR ON SERVICE ${DB_NAME}.${SCHEMA}.${JOB_SERVICE} TO ROLE ${OPERATOR_ROLE};
+
+GRANT READ ON SECRET ${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_ID TO ROLE ${OPERATOR_ROLE};
+GRANT READ ON SECRET ${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_SECRET TO ROLE ${OPERATOR_ROLE};
+GRANT READ ON SECRET ${DB_NAME}.${SCHEMA}.BEXIO_REFRESH_TOKEN TO ROLE ${OPERATOR_ROLE};
+GRANT READ ON SECRET ${DB_NAME}.${SCHEMA}.DLT_SNOWFLAKE_PASSWORD TO ROLE ${OPERATOR_ROLE};
+
+-- SPCS job container uses the integration; service owner role needs USAGE on EAI.
+-- If the service runs as OPERATOR_ROLE, also grant OPERATOR to the service spec role in Snowflake UI/CLI.
+
+GRANT ROLE ${OPERATOR_ROLE} TO ROLE ${DEPLOYER_ROLE};

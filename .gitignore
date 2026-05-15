@@ -2,6 +2,8 @@ Archive/
 tmp/
 .env
 bexio_refresh_token
+bexio_documents/
+bexio_booking_documents/
 bexio_scd2_smoke.duckdb
 .DS_Store
 publish.zip
@@ -10,3 +12,8 @@ publish.zip
 __pycache__/
 .pytest_cache/
 .venv/
+.bexio_pipeline_data/
+logs/
+
+# Optional local reference copy (not part of connector releases)
+_ref/

@@ -12,6 +12,7 @@ Env (see AUTHENTICATION.md for auth; README / IMPROVEMENT_PLAN for PSA):
   BEXIO_DLT_PIPELINE_NAME   dlt pipeline name; DuckDB file name (default bexio_pipeline)
   LOG_LEVEL                 logging level (default INFO)
   PIPELINE_RUN_ID / SNOWFLAKE_JOB_ID  optional lineage on each row (_extract_run_id)
+  BEXIO_DATA_DIR / BEXIO_LOADER_STATE_DIR  persisted fingerprints; last_run.json + history/*.json + fingerprints/
 """
 
 import hashlib
@@ -27,6 +28,16 @@ import requests
 from dotenv import load_dotenv
 
 from bexio_credentials import build_headers, resolve_bearer_token
+from loader_state import (
+    ResourceRunAccumulator,
+    atomic_write_json,
+    ensure_state_layout,
+    fingerprint_path,
+    history_snapshot_path,
+    last_run_path,
+    load_fingerprint,
+    state_root,
+)
 
 load_dotenv()
 
@@ -247,6 +258,8 @@ def run_pipeline() -> None:
     403/404 on an endpoint are logged and skipped so other tables still load.
     """
     _configure_logging()
+    ensure_state_layout()
+    run_started_at = datetime.now(timezone.utc).isoformat()
     access_token = resolve_bearer_token()
     headers = build_headers(access_token)
     extract_run_id = os.getenv("PIPELINE_RUN_ID") or os.getenv("SNOWFLAKE_JOB_ID") or ""
@@ -271,8 +284,11 @@ def run_pipeline() -> None:
         dataset_name=dataset_name,
     )
 
-    # Closure captures headers + lineage constants for this run.
-    def make_resource(endpoint_path: str, endpoint_limit: int):
+    def build_rows(
+        endpoint_path: str,
+        endpoint_limit: int,
+        accumulator: ResourceRunAccumulator,
+    ):
         def endpoint_rows():
             for row in grab_data(endpoint_path, endpoint_limit, headers):
                 enriched = dict(row)
@@ -281,28 +297,52 @@ def run_pipeline() -> None:
                 enriched["_loaded_at"] = loaded_at
                 if extract_run_id:
                     enriched["_extract_run_id"] = extract_run_id
+                accumulator.observe_row(enriched.get("id"), enriched["row_hash"])
                 yield enriched
 
         return endpoint_rows
 
     results: Dict[str, str] = {}
+    table_stats: Dict[str, Any] = {}
     for name, endpoint in ENDPOINTS.items():
         endpoint_path = endpoint["path"]
         endpoint_limit = endpoint.get("limit", DEFAULT_REQUEST_LIMIT)
+        fp_path = fingerprint_path(name)
+        accumulator = ResourceRunAccumulator(
+            resource_name=name,
+            prev_fingerprint=load_fingerprint(fp_path),
+        )
         try:
             endpoint_resource = dlt.resource(
-                make_resource(endpoint_path, endpoint_limit),
+                build_rows(endpoint_path, endpoint_limit, accumulator),
                 name=name,
                 write_disposition=SCD2_WRITE_DISPOSITION,
                 primary_key="id",
             )
             info = pipeline.run(endpoint_resource, table_name=name)
-            logger.info("Loaded endpoint %r: %s", name, info)
+            atomic_write_json(fp_path, accumulator.current_fingerprint)
+            extracted_total = sum(accumulator.counts.values())
+            table_stats[name] = {
+                "status": "ok",
+                "extracted_rows": extracted_total,
+                "rows_new": accumulator.counts["new"],
+                "rows_updated": accumulator.counts["updated"],
+                "rows_unchanged": accumulator.counts["unchanged"],
+                "rows_without_id": accumulator.counts["no_id"],
+                "dlt_load_ids": list(info.loads_ids),
+            }
+            logger.info(
+                "Loaded endpoint %r: %s | change_counts=%s",
+                name,
+                info,
+                {k: v for k, v in accumulator.counts.items() if v},
+            )
             results[name] = "ok"
         except Exception as exc:
             outcome, level = _endpoint_http_outcome(exc)
             if outcome == "skipped_forbidden":
                 results[name] = outcome
+                table_stats[name] = {"status": outcome}
                 logger.log(
                     level,
                     (
@@ -316,6 +356,7 @@ def run_pipeline() -> None:
                 )
             elif outcome == "skipped_not_found":
                 results[name] = outcome
+                table_stats[name] = {"status": outcome}
                 logger.log(
                     level,
                     "Skipping endpoint %r (path=%s): HTTP 404 Not Found.",
@@ -324,6 +365,7 @@ def run_pipeline() -> None:
                 )
             else:
                 results[name] = f"failed: {exc}"
+                table_stats[name] = {"status": "failed", "error": str(exc)}
                 logger.error(
                     "Endpoint %r (path=%s) failed: %s",
                     name,
@@ -331,6 +373,39 @@ def run_pipeline() -> None:
                     exc,
                     exc_info=True,
                 )
+
+    aggregate_keys = (
+        "extracted_rows",
+        "rows_new",
+        "rows_updated",
+        "rows_unchanged",
+        "rows_without_id",
+    )
+    aggregate = {k: 0 for k in aggregate_keys}
+    for stats in table_stats.values():
+        if stats.get("status") != "ok":
+            continue
+        for k in aggregate_keys:
+            aggregate[k] += int(stats.get(k, 0))
+
+    finished_at = datetime.now(timezone.utc)
+    finished_iso = finished_at.isoformat()
+    last_run_doc = {
+        "schema_version": 1,
+        "pipeline_name": pipeline_name,
+        "destination": destination,
+        "dataset_name": dataset_name,
+        "pipeline_run_id": extract_run_id,
+        "started_at": run_started_at,
+        "finished_at": finished_iso,
+        "state_dir": str(state_root()),
+        "aggregate": aggregate,
+        "tables": table_stats,
+    }
+    atomic_write_json(last_run_path(), last_run_doc)
+    hist_path = history_snapshot_path(finished_at, extract_run_id)
+    atomic_write_json(hist_path, last_run_doc)
+    logger.info("Loader state latest=%s history=%s", last_run_path(), hist_path)
 
     logger.info("Endpoint run summary:")
     for endpoint_name, status in results.items():

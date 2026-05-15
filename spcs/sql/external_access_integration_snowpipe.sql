@@ -1,0 +1,18 @@
+-- External access: Bexio OAuth secrets + Snowpipe JWT key (no DLT warehouse password).
+-- Create secrets first: ./spcs/create_secrets.sh --env <env> --snowpipe
+
+USE ROLE ACCOUNTADMIN;
+
+CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION ${BEXIO_EAI}
+  ALLOWED_NETWORK_RULES = (${DB_NAME}.${SCHEMA}.BEXIO_API_RULE)
+  ALLOWED_AUTHENTICATION_SECRETS = (
+    ${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_ID,
+    ${DB_NAME}.${SCHEMA}.BEXIO_CLIENT_SECRET,
+    ${DB_NAME}.${SCHEMA}.BEXIO_REFRESH_TOKEN,
+    ${DB_NAME}.${SCHEMA}.SNOWPIPE_PRIVATE_KEY_PEM
+  )
+  ENABLED = TRUE
+  COMMENT = 'Bexio OAuth + Snowpipe REST key for bexio-connector (${ENV_UPPER}, Snowpipe)';
+
+GRANT USAGE ON INTEGRATION ${BEXIO_EAI} TO ROLE ${DEPLOYER_ROLE};
+GRANT USAGE ON INTEGRATION ${BEXIO_EAI} TO ROLE ${OPERATOR_ROLE};

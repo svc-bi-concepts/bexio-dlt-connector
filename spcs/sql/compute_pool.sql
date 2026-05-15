@@ -1,0 +1,21 @@
+-- Minimal compute pool for batch Bexio dlt jobs (scales down when idle).
+-- Run via: spcs/deploy_infra.sh --env <env>
+-- Requires ACCOUNTADMIN (or role with CREATE COMPUTE POOL).
+
+USE ROLE ACCOUNTADMIN;
+
+CREATE COMPUTE POOL IF NOT EXISTS ${COMPUTE_POOL}
+  MIN_NODES = 0
+  MAX_NODES = 1
+  INSTANCE_FAMILY = CPU_X64_XS
+  AUTO_RESUME = TRUE
+  AUTO_SUSPEND_SECS = 60
+  COMMENT = 'Batch pool for bexio-dlt-connector SPCS job (${ENV_UPPER})';
+
+GRANT USAGE ON COMPUTE POOL ${COMPUTE_POOL} TO ROLE ${DEPLOYER_ROLE};
+GRANT USAGE ON COMPUTE POOL ${COMPUTE_POOL} TO ROLE ${OPERATOR_ROLE};
+
+CREATE IMAGE REPOSITORY IF NOT EXISTS ${DB_NAME}.${SCHEMA}.${IMAGE_REPO}
+  COMMENT = 'Docker image for bexio-dlt-connector (${ENV_UPPER})';
+
+GRANT READ ON IMAGE REPOSITORY ${DB_NAME}.${SCHEMA}.${IMAGE_REPO} TO ROLE ${DEPLOYER_ROLE};
