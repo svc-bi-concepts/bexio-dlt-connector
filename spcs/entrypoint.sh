@@ -1,6 +1,17 @@
 #!/bin/sh
-# SPCS job entrypoint: persist dlt state + refresh token, then run one pipeline and exit.
+# SPCS job entrypoint: Snowflake session token for dlt, Bexio refresh token file, then pipeline.
 set -e
+
+# dlt Snowflake destination — OAuth token injected by Snowflake for the job (SPCS)
+if [ -f /snowflake/session/token ]; then
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST:-${DESTINATION__SNOWFLAKE__CREDENTIALS__HOST}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE="${DESTINATION_DATABASE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE:-ERP}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE="${DESTINATION_WAREHOUSE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE:-ANALYTICS}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${DESTINATION_ROLE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE:-PRD_BEXIO_ETL_OPERATOR}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__AUTHENTICATOR="oauth"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="$(cat /snowflake/session/token)"
+fi
 
 DATA_DIR="${BEXIO_DATA_DIR:-/data}"
 mkdir -p "${DATA_DIR}/.dlt"
@@ -16,10 +27,6 @@ fi
 
 export PIPELINE_RUN_ID="${PIPELINE_RUN_ID:-${SNOWFLAKE_JOB_ID:-$(date -u +%Y%m%dT%H%M%SZ)}}"
 export BEXIO_DLT_DESTINATION="${BEXIO_DLT_DESTINATION:-snowflake}"
-
-if [ -f /snowflake/session/token ]; then
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="$(cat /snowflake/session/token)"
-fi
 
 MODE="${BEXIO_LOAD_MODE:-dlt}"
 if [ "$MODE" = "snowpipe" ]; then

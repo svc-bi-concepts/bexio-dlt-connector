@@ -9,7 +9,10 @@ spec:
       DESTINATION_DATABASE: ERP
       DESTINATION_WAREHOUSE: ANALYTICS
       DESTINATION_ROLE: PRD_BEXIO_ETL_OPERATOR
-      BEXIO_DATA_DIR: /home/appuser/data
+      BEXIO_DATA_DIR: /data
+      BEXIO_REFRESH_TOKEN_FILE: /data/bexio_refresh_token
+      SNOWFLAKE_HOST: es10286-marketplace.snowflakecomputing.com
+      SNOWFLAKE_ACCOUNT: es10286-marketplace
       DESTINATION__SNOWFLAKE__CREDENTIALS__HOST: es10286-marketplace.snowflakecomputing.com
       DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT: es10286-marketplace
       DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE: ERP

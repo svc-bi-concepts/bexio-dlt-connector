@@ -10,9 +10,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY bexio_oauth.py bexio_credentials.py dlt_pipeline.py loader_state.py snowflake_jwt.py snowpipe_rest.py snowpipe_pipeline.py .
-COPY spcs/entrypoint.sh /app/spcs/entrypoint.sh
-RUN chmod +x /app/spcs/entrypoint.sh
+COPY entrypoint.sh /app/entrypoint.sh
+COPY entrypoint.sh /app/spcs/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh /app/spcs/entrypoint.sh
 
 USER appuser
 
-CMD ["./spcs/entrypoint.sh"]
+CMD ["./entrypoint.sh"]
