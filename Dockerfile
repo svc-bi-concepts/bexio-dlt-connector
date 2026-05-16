@@ -15,4 +15,4 @@ RUN chmod +x /app/spcs/entrypoint.sh
 
 USER appuser
 
-CMD ["python", "dlt_pipeline.py"]
+CMD ["./spcs/entrypoint.sh"]

@@ -1,0 +1,2 @@
+-- DEPRECATED: This file has been moved to 08_secrets.sql (secrets are now created late in the process).
+-- Please use 08_secrets.sql instead.

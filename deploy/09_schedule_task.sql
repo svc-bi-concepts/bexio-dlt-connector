@@ -1,0 +1,2 @@
+-- DEPRECATED: This file has been moved to 11_schedule_task.sql.
+-- Please use 11_schedule_task.sql instead.

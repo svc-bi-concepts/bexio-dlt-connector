@@ -1,0 +1,2 @@
+-- DEPRECATED: This file has been moved to 03_governance.sql.
+-- Please use 03_governance.sql instead.

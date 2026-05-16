@@ -1,0 +1,20 @@
+-- Step 2a: SYSADMIN creates and owns the database
+USE ROLE SYSADMIN;
+
+CREATE DATABASE IF NOT EXISTS ERP
+  COMMENT = 'ERP data platform — bexio connector and related sources';
+
+-- Step 2b: SYSADMIN creates schemas, then grants ownership to PRD_BEXIO_ETL_ADMIN
+CREATE SCHEMA IF NOT EXISTS ERP.PRD_INFRA
+  COMMENT = 'SPCS infrastructure: image repo, stages, network rules';
+
+CREATE SCHEMA IF NOT EXISTS ERP.PRD_SECRETS
+  COMMENT = 'Snowflake SECRET objects for bexio OAuth credentials';
+
+CREATE SCHEMA IF NOT EXISTS ERP.PRD_BEXIO
+  COMMENT = 'dlt landing schema for bexio API data (SCD2 merge)';
+
+-- Step 2c: Transfer schema ownership to PRD_BEXIO_ETL_ADMIN
+GRANT OWNERSHIP ON SCHEMA ERP.PRD_INFRA   TO ROLE PRD_BEXIO_ETL_ADMIN REVOKE CURRENT GRANTS;
+GRANT OWNERSHIP ON SCHEMA ERP.PRD_SECRETS TO ROLE PRD_BEXIO_ETL_ADMIN REVOKE CURRENT GRANTS;
+GRANT OWNERSHIP ON SCHEMA ERP.PRD_BEXIO   TO ROLE PRD_BEXIO_ETL_ADMIN REVOKE CURRENT GRANTS;

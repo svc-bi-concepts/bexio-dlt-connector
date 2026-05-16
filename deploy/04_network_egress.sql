@@ -1,0 +1,2 @@
+-- DEPRECATED: Split into 04_network_rule.sql (network rule) and 09_eai.sql (external access integration).
+-- Please use those files instead.

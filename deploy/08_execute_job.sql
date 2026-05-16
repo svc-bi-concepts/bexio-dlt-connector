@@ -1,0 +1,2 @@
+-- DEPRECATED: This file has been moved to 10_execute_job.sql.
+-- Please use 10_execute_job.sql instead.
