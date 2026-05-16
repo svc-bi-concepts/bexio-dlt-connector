@@ -17,6 +17,10 @@ fi
 export PIPELINE_RUN_ID="${PIPELINE_RUN_ID:-${SNOWFLAKE_JOB_ID:-$(date -u +%Y%m%dT%H%M%SZ)}}"
 export BEXIO_DLT_DESTINATION="${BEXIO_DLT_DESTINATION:-snowflake}"
 
+if [ -f /snowflake/session/token ]; then
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="$(cat /snowflake/session/token)"
+fi
+
 MODE="${BEXIO_LOAD_MODE:-dlt}"
 if [ "$MODE" = "snowpipe" ]; then
   export BEXIO_STAGE_MOUNT="${BEXIO_STAGE_MOUNT:-/snowflake-stage}"
