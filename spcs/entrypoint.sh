@@ -2,36 +2,17 @@
 # SPCS job entrypoint: Snowflake session token for dlt, Bexio refresh token file, then pipeline.
 set -e
 
-# dlt Snowflake destination: HOST must be account locator only (no .snowflakecomputing.com).
-# SPCS may inject SNOWFLAKE_HOST=<account>.snowflakecomputing.com — strip suffix before dlt sees it.
-_dlt_snowflake_host() {
-  _h="${DESTINATION__SNOWFLAKE__CREDENTIALS__HOST:-}"
-  if [ -z "$_h" ]; then
-    _h="${SNOWFLAKE_ACCOUNT:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT:-}}"
-  fi
-  if [ -z "$_h" ] && [ -n "${SNOWFLAKE_HOST:-}" ]; then
-    _h="${SNOWFLAKE_HOST}"
-  fi
-  _h="${_h#https://}"
-  _h="${_h#http://}"
-  _h="${_h%%/*}"
-  case "$_h" in
-    *.snowflakecomputing.com) _h="${_h%.snowflakecomputing.com}" ;;
-  esac
-  printf '%s' "$_h"
-}
+# dlt Snowflake destination: HOST must be the full FQDN when running inside SPCS.
+# SPCS injects SNOWFLAKE_HOST as the internal endpoint — pass it through as-is.
 
 if [ -f /snowflake/session/token ]; then
-  _host="$(_dlt_snowflake_host)"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="$_host"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT:-$_host}}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE="${DESTINATION_DATABASE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE:-ERP}}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE="${DESTINATION_WAREHOUSE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE:-ANALYTICS}}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${DESTINATION_ROLE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE:-PRD_BEXIO_ETL_OPERATOR}}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__AUTHENTICATOR="oauth"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="$(cat /snowflake/session/token)"
-  # Avoid dlt auto-detect using SPCS-injected FQDN in SNOWFLAKE_HOST.
-  export SNOWFLAKE_HOST="$_host"
 fi
 
 DATA_DIR="${BEXIO_DATA_DIR:-/data}"
