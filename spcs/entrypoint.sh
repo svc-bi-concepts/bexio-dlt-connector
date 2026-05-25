@@ -2,12 +2,13 @@
 # SPCS job entrypoint: Snowflake session token for dlt, Bexio refresh token file, then pipeline.
 set -e
 
-# dlt Snowflake destination: HOST must be the full FQDN when running inside SPCS.
-# SPCS injects SNOWFLAKE_HOST as the internal endpoint — pass it through as-is.
+# dlt Snowflake destination via SPCS internal auth.
+# Set HOST to full FQDN from SNOWFLAKE_HOST (connector uses it directly when provided).
+# Set ACCOUNT to locator only (dlt needs it but won't construct host when HOST is explicit).
 
 if [ -f /snowflake/session/token ]; then
   export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-BE32209}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE="${DESTINATION_DATABASE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE:-ERP}}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE="${DESTINATION_WAREHOUSE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE:-ANALYTICS}}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${DESTINATION_ROLE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE:-PRD_BEXIO_ETL_OPERATOR}}"
