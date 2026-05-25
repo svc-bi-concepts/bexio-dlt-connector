@@ -3,17 +3,38 @@
 set -e
 
 # dlt Snowflake destination via SPCS internal auth.
-# Set HOST to full FQDN from SNOWFLAKE_HOST (connector uses it directly when provided).
-# Set ACCOUNT to locator only (dlt needs it but won't construct host when HOST is explicit).
+# Write a connections.toml so the Python connector uses SNOWFLAKE_HOST directly
+# (dlt doesn't pass 'host' kwarg, so we configure it via the connector's config file).
 
 if [ -f /snowflake/session/token ]; then
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT:-BE32209}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE="${DESTINATION_DATABASE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE:-ERP}}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE="${DESTINATION_WAREHOUSE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE:-ANALYTICS}}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${DESTINATION_ROLE:-${DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE:-PRD_BEXIO_ETL_OPERATOR}}"
+  _token="$(cat /snowflake/session/token)"
+  _db="${DESTINATION_DATABASE:-ERP}"
+  _wh="${DESTINATION_WAREHOUSE:-ANALYTICS}"
+  _role="${DESTINATION_ROLE:-PRD_BEXIO_ETL_OPERATOR}"
+  _schema="${BEXIO_DLT_DATASET_NAME:-PRD_BEXIO}"
+
+  mkdir -p /home/appuser/.snowflake
+  cat > /home/appuser/.snowflake/connections.toml <<TOML
+[default]
+host = "${SNOWFLAKE_HOST}"
+account = "${SNOWFLAKE_ACCOUNT}"
+authenticator = "oauth"
+token = "${_token}"
+database = "${_db}"
+schema = "${_schema}"
+warehouse = "${_wh}"
+role = "${_role}"
+TOML
+  chmod 600 /home/appuser/.snowflake/connections.toml
+
+  export SNOWFLAKE_DEFAULT_CONNECTION_NAME="default"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ACCOUNT="${SNOWFLAKE_ACCOUNT}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__DATABASE="${_db}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__WAREHOUSE="${_wh}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${_role}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__AUTHENTICATOR="oauth"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="$(cat /snowflake/session/token)"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="${_token}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST}"
 fi
 
 DATA_DIR="${BEXIO_DATA_DIR:-/data}"
