@@ -12,11 +12,13 @@ if [ -f /snowflake/session/token ]; then
   _wh="${DESTINATION_WAREHOUSE:-ANALYTICS}"
   _role="${DESTINATION_ROLE:-PRD_BEXIO_ETL_OPERATOR}"
   _schema="${BEXIO_DLT_DATASET_NAME:-PRD_BEXIO}"
+  # Account locator only — dlt appends .snowflakecomputing.com
+  _host="${SNOWFLAKE_HOST%.snowflakecomputing.com}"
 
   mkdir -p /home/appuser/.snowflake
   cat > /home/appuser/.snowflake/connections.toml <<TOML
 [default]
-host = "${SNOWFLAKE_HOST}"
+host = "${_host}"
 account = "${SNOWFLAKE_ACCOUNT}"
 authenticator = "oauth"
 token = "${_token}"
@@ -34,7 +36,7 @@ TOML
   export DESTINATION__SNOWFLAKE__CREDENTIALS__ROLE="${_role}"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__AUTHENTICATOR="oauth"
   export DESTINATION__SNOWFLAKE__CREDENTIALS__TOKEN="${_token}"
-  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${SNOWFLAKE_HOST%.snowflakecomputing.com}"
+  export DESTINATION__SNOWFLAKE__CREDENTIALS__HOST="${_host}"
 fi
 
 DATA_DIR="${BEXIO_DATA_DIR:-/data}"
